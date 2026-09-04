@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+    <h2 class="text-lg font-bold text-cyan-400">Microscope Water Sample Analysis</h2>
+    <p class="text-xs text-slate-400">Upload high-resolution water or microscope slide images to run Gemini bounding box detection.</p>
+    
+    <input type="file" id="imageInput" class="block w-full text-xs text-slate-400 file:bg-cyan-600 file:text-white file:border-0 file:rounded file:px-4 file:py-2 cursor-pointer">
+    <button onclick="uploadImage()" class="w-full bg-cyan-600 hover:bg-cyan-500 py-2.5 rounded font-bold text-xs uppercase tracking-wide">Run Gemini Analysis</button>
+
+    <div id="statusText" class="text-xs text-slate-400 font-mono hidden">Processing with Gemini Vision API...</div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+    <h3 class="text-sm font-bold text-slate-200">Detection & Scientific Report</h3>
+    <div id="outputContainer" class="hidden space-y-4">
+      <img id="resultImage" class="w-full rounded border border-slate-700 max-h-72 object-contain bg-black">
+      <div class="flex justify-between bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono">
+        <span>Particles Detected: <strong id="particleCount" class="text-cyan-400">0</strong></span>
+        <span>Types: <strong id="particleTypes" class="text-amber-400">None</strong></span>
+      </div>
+      <div class="bg-slate-950 p-4 rounded border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap" id="reportContent"></div>
+      <button onclick="sendToDashboard()" class="w-full bg-emerald-600 hover:bg-emerald-500 py-2 rounded text-xs font-bold">Inject into Food-Chain Simulation ➡️</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function uploadImage() {
+  const file = document.getElementById('imageInput').files[0];
+  if (!file) return alert("Select an image first!");
+
+  document.getElementById('statusText').classList.remove('hidden');
+  const fd = new FormData();
+  fd.append('file', file);
+
+  const res = await fetch('/api/upload-detect', { method: 'POST', body: fd });
+  const data = await res.json();
+  document.getElementById('statusText').classList.add('hidden');
+
+  document.getElementById('outputContainer').classList.remove('hidden');
+  document.getElementById('resultImage').src = data.annotated_img;
+  document.getElementById('particleCount').innerText = data.count;
+  document.getElementById('particleTypes').innerText = [...new Set(data.items)].join(', ') || "None";
+  document.getElementById('reportContent').innerText = data.report;
+  
+  sessionStorage.setItem('detected_mp', data.count * 15);
+}
+
+function sendToDashboard() {
+  window.location.href = '/dashboard';
+}
+</script>
+{% endblock %}

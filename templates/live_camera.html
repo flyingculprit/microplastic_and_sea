@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+    <h2 class="text-lg font-bold text-cyan-400">Live Camera Stream</h2>
+    <p class="text-xs text-slate-400">Show microplastic sample on mobile or paper directly in front of the lens.</p>
+    
+    <div class="relative bg-black rounded-lg overflow-hidden border border-slate-700 h-72 flex items-center justify-center">
+      <video id="webcam" autoplay playsinline class="w-full h-full object-cover"></video>
+      <canvas id="snapshotCanvas" class="hidden"></canvas>
+    </div>
+
+    <div class="flex space-x-3">
+      <button onclick="startCamera()" class="flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded text-xs font-bold">Start Camera</button>
+      <button onclick="captureAndDetect()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 py-2 rounded text-xs font-bold">Capture & Analyze</button>
+    </div>
+  </div>
+
+  <div class="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-4">
+    <h3 class="text-sm font-bold text-slate-200">Live Inference Result</h3>
+    <img id="camResultImg" class="w-full rounded border border-slate-700 max-h-72 object-contain bg-black hidden">
+    <div class="flex justify-between bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono">
+      <span>Count: <strong id="camCount" class="text-cyan-400">0</strong></span>
+      <span>Classes: <strong id="camTypes" class="text-amber-400">None</strong></span>
+    </div>
+    <div id="camReport" class="text-xs text-slate-300 bg-slate-950 p-4 rounded border border-slate-800 whitespace-pre-wrap">Awaiting capture...</div>
+  </div>
+</div>
+
+<script>
+let video = document.getElementById('webcam');
+
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+}
+
+async function captureAndDetect() {
+  const canvas = document.getElementById('snapshotCanvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataURL = canvas.toDataURL('image/jpeg');
+
+  document.getElementById('camReport').innerText = "Analyzing live frame with Gemini...";
+  const res = await fetch('/api/camera-detect', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: dataURL })
+  });
+  const data = await res.json();
+
+  document.getElementById('camResultImg').src = data.annotated_img;
+  document.getElementById('camResultImg').classList.remove('hidden');
+  document.getElementById('camCount').innerText = data.count;
+  document.getElementById('camTypes').innerText = [...new Set(data.items)].join(', ');
+  document.getElementById('camReport').innerText = data.report;
+  
+  sessionStorage.setItem('detected_mp', data.count * 15);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Top Metrics Bar -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <div class="text-xs text-slate-400">Sea Surface Temp</div>
+      <div id="valTemp" class="text-2xl font-bold text-cyan-400 mt-1">--°C</div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <div class="text-xs text-slate-400">Wave Height</div>
+      <div id="valWave" class="text-2xl font-bold text-emerald-400 mt-1">-- m</div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <div class="text-xs text-slate-400">Estimated Microplastic</div>
+      <div id="valMP" class="text-2xl font-bold text-rose-400 mt-1">-- pcs/m³</div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+      <div class="text-xs text-slate-400">Selected Coordinate</div>
+      <div id="valCoord" class="text-xs font-mono text-slate-200 mt-2">Click anywhere on sea</div>
+    </div>
+  </div>
+
+  <!-- Map and Live Satellite Split View -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- Left 2 Cols: GIS Interactive Global Map -->
+    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-sm font-bold text-slate-200">Live Global Marine GIS & Pollution Mapping</h3>
+        <span class="text-[11px] text-cyan-400 animate-pulse">● Click any ocean point to fetch live telemetry</span>
+      </div>
+      <div id="satMap" class="h-[480px] rounded-lg border border-slate-800"></div>
+    </div>
+
+    <!-- Right 1 Col: NASA Satellite Feed & Station Log -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-bold text-cyan-400">NASA Earth Optical Pass</h3>
+        <span class="text-[10px] bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded border border-cyan-800">NASA GIBS / API</span>
+      </div>
+      
+      <div class="rounded-lg overflow-hidden border border-slate-700 bg-black flex items-center justify-center min-h-[220px]">
+        <img id="nasaImage" src="" alt="Satellite Feed" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80'">
+      </div>
+
+      <div class="bg-slate-950 p-3 rounded-lg border border-slate-800 space-y-2 text-xs">
+        <div class="font-bold text-slate-300 uppercase tracking-wide text-[11px]">Ecological Risk Assessment</div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Hazard Category:</span>
+          <span id="riskLabel" class="font-bold text-amber-400">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Wave Dynamics:</span>
+          <span id="waveDynamics" class="font-mono text-slate-300">--</span>
+        </div>
+        <button onclick="injectToSimulator()" class="w-full bg-cyan-600 hover:bg-cyan-500 py-2 rounded text-xs font-bold text-white mt-2">Send Telemetry to Food Chain Simulator ➡️</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let map, activeMarker;
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Free OpenStreetMap Tiles (Zero watermark, completely free)
+  map = L.map('satMap').setView([13.0827, 80.2707], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+
+  // Pre-load Default Station (Bay of Bengal)
+  loadLiveOceanData(13.08, 80.27);
+
+  // Dynamic Click Handler: Click on any ocean in the world to get real live data!
+  map.on('click', (e) => {
+    const { lat, lng } = e.latlng;
+    loadLiveOceanData(lat, lng);
+  });
+});
+
+async function loadLiveOceanData(lat, lon) {
+  lat = lat.toFixed(3);
+  lon = lon.toFixed(3);
+
+  if (activeMarker) map.removeLayer(activeMarker);
+  activeMarker = L.marker([lat, lon]).addTo(map).bindPopup(`<b>Selected Station</b><br>Lat: ${lat}, Lon: ${lon}`).openPopup();
+
+  document.getElementById('valCoord').innerText = `${lat}° N, ${lon}° E`;
+
+  try {
+    const res = await fetch(`/api/satellite-data?lat=${lat}&lon=${lon}`);
+    const data = await res.json();
+
+    document.getElementById('valTemp').innerText = `${data.sea_temp}°C`;
+    document.getElementById('valWave').innerText = `${data.wave_height} m`;
+    document.getElementById('valMP').innerText = `${data.estimated_mp} pcs/m³`;
+    document.getElementById('waveDynamics').innerText = `Period: ${data.wave_period}s`;
+    document.getElementById('riskLabel').innerText = data.risk_status;
+
+    // Color code status
+    const riskEl = document.getElementById('riskLabel');
+    riskEl.className = `font-bold ${data.risk_status === 'Critical Hazard' ? 'text-rose-400' : (data.risk_status === 'Moderate Risk' ? 'text-amber-400' : 'text-emerald-400')}`;
+
+    if (data.nasa_satellite_image) {
+      document.getElementById('nasaImage').src = data.nasa_satellite_image;
+    }
+
+    sessionStorage.setItem('detected_mp', data.estimated_mp);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function injectToSimulator() {
+  window.location.href = '/dashboard';
+}
+</script>
+{% endblock %}

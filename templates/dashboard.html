@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Left: Inputs & Risk Model -->
+  <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 text-xs">
+    <h3 class="text-sm font-bold text-cyan-400 uppercase">ML Environmental Risk Parameters</h3>
+    <div>
+      <label class="text-slate-400">Microplastic Density (particles/m³)</label>
+      <input type="number" id="in_mp" value="120" class="w-full bg-slate-950 p-2 rounded border border-slate-700 mt-1">
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="text-slate-400">pH Level</label>
+        <input type="number" step="0.1" id="in_ph" value="7.8" class="w-full bg-slate-950 p-2 rounded border border-slate-700 mt-1">
+      </div>
+      <div>
+        <label class="text-slate-400">DO (mg/L)</label>
+        <input type="number" step="0.1" id="in_do" value="5.2" class="w-full bg-slate-950 p-2 rounded border border-slate-700 mt-1">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="text-slate-400">Turbidity (NTU)</label>
+        <input type="number" step="0.1" id="in_turb" value="6.5" class="w-full bg-slate-950 p-2 rounded border border-slate-700 mt-1">
+      </div>
+      <div>
+        <label class="text-slate-400">Fish Density</label>
+        <input type="number" id="in_fish" value="85" class="w-full bg-slate-950 p-2 rounded border border-slate-700 mt-1">
+      </div>
+    </div>
+    <button onclick="calculateAll()" class="w-full bg-cyan-600 hover:bg-cyan-500 py-2.5 rounded font-bold text-xs uppercase">Simulate Bioaccumulation & Predict</button>
+
+    <div class="bg-slate-950 p-4 rounded border border-slate-800 mt-4">
+      <div class="text-slate-400">Predicted Ecological Risk:</div>
+      <div id="riskResult" class="text-base font-bold text-amber-400 mt-1">Analyzing...</div>
+    </div>
+  </div>
+
+  <!-- Center: Trophic Food Chain Chart -->
+  <div class="lg:col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4">
+    <h3 class="text-sm font-bold text-slate-200">Biomagnification Across Trophic Food Chain</h3>
+    <div class="h-64">
+      <canvas id="chainChart"></canvas>
+    </div>
+
+    <!-- Interactive Gemini Science Assistant -->
+    <div class="border-t border-slate-800 pt-4 space-y-2">
+      <h4 class="text-xs font-bold text-cyan-400 uppercase">Ask Gemini Marine Assistant</h4>
+      <div class="flex space-x-2">
+        <input type="text" id="userQuestion" placeholder="e.g. How does high plastic burden affect tuna reproduction?" class="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs">
+        <button onclick="askGemini()" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-xs font-bold">Ask AI</button>
+      </div>
+      <div id="aiResponse" class="text-xs bg-slate-950 p-3 rounded border border-slate-800 text-slate-300 min-h-[60px] whitespace-pre-wrap">AI answers will appear here...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let chart;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const cachedMp = sessionStorage.getItem('detected_mp');
+  if (cachedMp) document.getElementById('in_mp').value = cachedMp;
+
+  const ctx = document.getElementById('chainChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Water Base', 'Plankton', 'Small Fish', 'Large Fish', 'Apex Predator'],
+      datasets: [{
+        label: 'Trophic Concentration (particles/kg)',
+        data: [0, 0, 0, 0, 0],
+        backgroundColor: ['#38bdf8', '#34d399', '#facc15', '#fb923c', '#ef4444']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { grid: { color: '#1e293b' } } }
+    }
+  });
+
+  calculateAll();
+});
+
+async function calculateAll() {
+  const mp = document.getElementById('in_mp').value;
+  const ph = document.getElementById('in_ph').value;
+  const doVal = document.getElementById('in_do').value;
+  const turb = document.getElementById('in_turb').value;
+  const fish = document.getElementById('in_fish').value;
+
+  // 1. Food chain math
+  const res1 = await fetch('/api/calculate-food-chain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mp_count: mp })
+  });
+  const chain = await res1.json();
+  chart.data.datasets[0].data = [chain.water, chain.plankton, chain.small_fish, chain.large_fish, chain.apex_predator];
+  chart.update();
+
+  // 2. ML Risk Prediction
+  const res2 = await fetch('/api/predict-risk', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mp_count: mp, ph_level: ph, dissolved_oxygen: doVal, turbidity: turb, fish_density: fish })
+  });
+  const risk = await res2.json();
+  document.getElementById('riskResult').innerText = risk.risk_level;
+}
+
+async function askGemini() {
+  const q = document.getElementById('userQuestion').value;
+  if (!q) return;
+
+  const context = `Microplastic: ${document.getElementById('in_mp').value} p/m3, DO: ${document.getElementById('in_do').value}, Fish Density: ${document.getElementById('in_fish').value}`;
+  document.getElementById('aiResponse').innerText = "Thinking...";
+
+  const res = await fetch('/api/gemini-ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: q, context: context })
+  });
+  const data = await res.json();
+  document.getElementById('aiResponse').innerText = data.answer;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AquaGuard - Marine Microplastic Suite</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-8 py-4 flex justify-between items-center sticky top-0 z-50">
+    <div class="flex items-center space-x-3">
+      <span class="text-2xl">🌊</span>
+      <div>
+        <h1 class="text-lg font-bold text-cyan-400">AquaGuard Microplastic Suite</h1>
+        <p class="text-xs text-slate-400">Vision Detection • Trophic Transfer • Satellite Telemetry</p>
+      </div>
+    </div>
+    <nav class="flex space-x-6 text-sm font-semibold">
+      <a href="/" class="hover:text-cyan-400 transition">1. Image Upload</a>
+      <a href="/live-camera" class="hover:text-cyan-400 transition">2. Live Camera</a>
+      <a href="/satellite" class="hover:text-cyan-400 transition">3. Satellite & GIS</a>
+      <a href="/dashboard" class="hover:text-cyan-400 transition">4. Dashboard & AI</a>
+    </nav>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-6">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
